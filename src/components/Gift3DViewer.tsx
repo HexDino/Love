@@ -1601,13 +1601,6 @@ function BlindBoxGate({ photos, captions, receiverName, accent, onAllOpened }: B
   const [opened, setOpened] = useState<number[]>([]);
   const [reveal, setReveal] = useState<number | null>(null);
   const [justOpened, setJustOpened] = useState<number | null>(null);
-  const revealTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (revealTimerRef.current !== null) window.clearTimeout(revealTimerRef.current);
-    };
-  }, []);
 
   const allOpened = total > 0 && opened.length >= total;
 
@@ -1623,7 +1616,6 @@ function BlindBoxGate({ photos, captions, receiverName, accent, onAllOpened }: B
         vibrate(10);
       }
       setReveal(index);
-      if (revealTimerRef.current !== null) window.clearTimeout(revealTimerRef.current);
     },
     [accent, opened]
   );

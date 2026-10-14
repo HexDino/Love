@@ -41,6 +41,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/*
+          Rule `no-page-custom-font` la rule cua Pages Router (no chi kiem tra
+          pages/_document.js). Du an dung App Router nen khai bao <link> trong
+          app/layout.tsx la dung chuan => tat rule nay cho rieng dong duoi.
+
+          Khong chuyen sang next/font: public/fonts chi co 2 file tinh
+          (Regular 400 + Bold 700, dung rieng cho anh OG), trong khi giao dien
+          dung 6 muc 300-800. Dung next/font/local voi 2 file se lam chu bi gia
+          dam => lech toan bo giao dien.
+        */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Dancing+Script:wght@600;700&display=swap"
           rel="stylesheet"

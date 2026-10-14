@@ -14,6 +14,7 @@
 
 import { ImageResponse } from 'next/og';
 import { getGiftBySlugServer } from '@/lib/gift-server';
+import { getTemplateMeta, type TemplateStyle } from '@/lib/constants';
 
 export const runtime = 'edge';
 export const alt = 'Một món quà bất ngờ từ LoveBox 3D';
@@ -21,6 +22,20 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+
+/**
+ * Cau keu goi phai khop voi man hinh DAU TIEN ma nguoi nhan nhin thay.
+ *
+ * `galaxy-3d` va `polaroid-vinyl` mo dau bang phong bi that, nhung `sweet-trap`
+ * vao thang mini-game con `blindbox-2010` vao thang luoi tui mu. Neu dung chung
+ * mot cau "Cham de mo phong thu" cho ca 4 thi the preview noi sai su that.
+ */
+const TEMPLATE_CTA: Record<TemplateStyle, string> = {
+  'galaxy-3d': 'Chạm để mở phong thư',
+  'polaroid-vinyl': 'Chạm để mở phong thư',
+  'sweet-trap': 'Chạm để trả lời nhé',
+  'blindbox-2010': 'Chạm để xé túi mù'
+};
 
 // ---------------------------------------------------------------------------
 // NAP FONT (Be Vietnam Pro - giay phep OFL)
@@ -119,6 +134,10 @@ export default async function OpenGraphImage({ params }: { params: { slug: strin
   const photoDataUri = await loadPhotoDataUri(gift?.photos?.[0]);
   const fontFamily = fonts.length > 0 ? 'BeVietnamPro' : 'sans-serif';
 
+  // Kieu trinh dien thuc te cua mon qua -> quyet dinh cau keu goi
+  const templateMeta = getTemplateMeta(gift?.config?.template);
+  const cta = TEMPLATE_CTA[templateMeta.id];
+
   // Ten qua dai se tran ra ngoai khung -> cat bot cho an toan
   const displayName = receiverName.length > 18 ? `${receiverName.slice(0, 18)}…` : receiverName;
 
@@ -186,9 +205,35 @@ export default async function OpenGraphImage({ params }: { params: { slug: strin
           </div>
         </div>
 
+        {/* Nhan kieu trinh dien - goc phai tren.
+            KHONG dung emoji o day: font Be Vietnam Pro khong co glyph emoji nen
+            satori se ve ra o vuong (tofu). */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 56,
+            right: 56,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '10px 24px',
+            borderRadius: 999,
+            background: 'rgba(255, 255, 255, 0.2)',
+            border: '2px solid rgba(255, 255, 255, 0.42)',
+            fontSize: 23,
+            fontWeight: 700,
+            color: '#ffffff'
+          }}
+        >
+          {templateMeta.name}
+        </div>
+
         {/* Noi dung chinh */}
         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'flex-end', gap: 40 }}>
           {photoDataUri ? (
+            // Khong the dung next/image o day: satori (next/og) chi ve duoc the
+            // <img> voi src dang data URI, next/image can mot pipeline toi uu
+            // chay o server ma ImageResponse khong co.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photoDataUri}
               width={250}
@@ -225,7 +270,7 @@ export default async function OpenGraphImage({ params }: { params: { slug: strin
                 {`Từ ${senderName}`}
               </div>
               <div style={{ display: 'flex', fontSize: 24, color: 'rgba(255, 255, 255, 0.94)' }}>
-                Chạm để mở phong thư
+                {cta}
               </div>
             </div>
           </div>
