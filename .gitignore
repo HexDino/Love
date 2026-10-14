@@ -1,0 +1,26 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+.env
+.env.local
+.env*.local
+
+*.tsbuildinfo
+next-env.d.ts
+
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-error.log*
+.vercel
+
+# Trang thai lam viec cua agent (memory log, khong phai ma nguon du an)
+.workbuddy-ai/
+
+# File tam khi test
+og-*.png
+.demo.json
+page*.html
