@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { ThemeId } from './constants';
+import { DEFAULT_GIFT_CONFIG, type GiftConfig, type ThemeId } from './constants';
 
 // ---------------------------------------------------------------------------
 // BIEN MOI TRUONG
@@ -62,6 +62,8 @@ export interface GiftRow {
   theme: ThemeId;
   music: string;
   photos: string[];
+  /** Cau hinh mo rong V2 (kieu trinh dien, mat khau, the cao, ve dac quyen...) */
+  config: GiftConfig;
   amount: number;
   is_paid: boolean;
   paid_at: string | null;
@@ -78,7 +80,12 @@ export interface GiftDraftInput {
   theme: ThemeId;
   music: string;
   photos: string[];
+  /** Tuy chon: neu bo qua thi server dung DEFAULT_GIFT_CONFIG */
+  config?: GiftConfig;
 }
+
+/** Gia tri mac dinh khi doc phai mon qua cu chua co config */
+export const EMPTY_GIFT_CONFIG: GiftConfig = DEFAULT_GIFT_CONFIG;
 
 export interface GiftStatus {
   is_paid: boolean;

@@ -219,9 +219,299 @@ body {
   pointer-events: none;
 }
 
+/* ==========================================================================
+   V2 - INTERACTIVE GIFT ENGINE
+   Cac hieu ung cho 4 kieu trinh dien + 3 module gamification.
+   Tat ca deu chi dung transform/opacity/filter de giu 60fps tren mobile.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   BAU TROI SAO (galaxy-3d)
+   -------------------------------------------------------------------------- */
+@keyframes lb-twinkle {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+.lb-twinkle {
+  animation: lb-twinkle 3s ease-in-out infinite;
+}
+
+/* Khung kinh phat sang cho vong xoay 3D */
+.lb-glass-frame {
+  backdrop-filter: blur(7px) saturate(1.2);
+  -webkit-backdrop-filter: blur(7px) saturate(1.2);
+}
+
+/* --------------------------------------------------------------------------
+   DIA THAN (polaroid-vinyl)
+   -------------------------------------------------------------------------- */
+@keyframes lb-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lb-vinyl {
+  animation: lb-spin 3.4s linear infinite;
+}
+
+@keyframes lb-eq {
+  0%,
+  100% {
+    transform: scaleY(0.34);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.lb-eq-bar {
+  transform-origin: bottom center;
+  animation: lb-eq 0.72s ease-in-out infinite;
+}
+
+.lb-eq-paused {
+  animation-play-state: paused;
+  transform: scaleY(0.3);
+}
+
+/* --------------------------------------------------------------------------
+   SO ANH POLAROID
+   -------------------------------------------------------------------------- */
+@keyframes lb-polaroid-next {
+  0% {
+    opacity: 0;
+    transform: translateX(38px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes lb-polaroid-prev {
+  0% {
+    opacity: 0;
+    transform: translateX(-38px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.lb-polaroid-in {
+  animation: lb-polaroid-next 0.42s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.lb-polaroid-in-rev {
+  animation: lb-polaroid-prev 0.42s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+/* --------------------------------------------------------------------------
+   BAN PHIM SO (passcode lock)
+   -------------------------------------------------------------------------- */
+@keyframes lb-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-10px);
+  }
+  30% {
+    transform: translateX(9px);
+  }
+  45% {
+    transform: translateX(-7px);
+  }
+  60% {
+    transform: translateX(5px);
+  }
+  80% {
+    transform: translateX(-3px);
+  }
+}
+
+.lb-shake {
+  animation: lb-shake 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.lb-keypad {
+  transition:
+    transform 0.12s ease,
+    background-color 0.18s ease;
+}
+
+.lb-keypad:active {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* --------------------------------------------------------------------------
+   VE DAC QUYEN (ticket UI)
+   Duong cat rang cua o canh tren + duoi bang SVG mask.
+   Neu trinh duyet khong ho tro mask, the van hien binh thuong (khong vo).
+   -------------------------------------------------------------------------- */
+.lb-ticket {
+  border-radius: 14px;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 100' preserveAspectRatio='none'%3E%3Cpath d='M0,0 A10,10 0 0 0 20,0 L20,100 A10,10 0 0 0 0,100 Z' fill='%23000'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 100' preserveAspectRatio='none'%3E%3Cpath d='M0,0 A10,10 0 0 0 20,0 L20,100 A10,10 0 0 0 0,100 Z' fill='%23000'/%3E%3C/svg%3E");
+  -webkit-mask-size: 22px 100%;
+  mask-size: 22px 100%;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+@keyframes lb-heart-fly {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-96px) scale(1.5) rotate(18deg);
+  }
+}
+
+.lb-heart-fly {
+  animation: lb-heart-fly 1.05s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+/* --------------------------------------------------------------------------
+   TUI MU (blindbox-2010)
+   -------------------------------------------------------------------------- */
+@keyframes lb-bag-wiggle {
+  0%,
+  100% {
+    transform: rotate(-2.6deg) translateY(0);
+  }
+  25% {
+    transform: rotate(2.4deg) translateY(-3px);
+  }
+  50% {
+    transform: rotate(-1.8deg) translateY(0);
+  }
+  75% {
+    transform: rotate(2.8deg) translateY(-2px);
+  }
+}
+
+.lb-bag {
+  animation: lb-bag-wiggle 2.4s ease-in-out infinite;
+  transform-origin: 50% 88%;
+}
+
+@keyframes lb-bag-shine {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  60%,
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.lb-bag-shine {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0) 100%);
+  animation: lb-bag-shine 2.9s ease-in-out infinite;
+}
+
+@keyframes lb-burst-ring {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.42);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.lb-burst-ring {
+  animation: lb-burst-ring 0.95s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes lb-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(14px);
+  }
+  60% {
+    transform: scale(1.03) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.lb-pop-in {
+  animation: lb-pop-in 0.5s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+/* --------------------------------------------------------------------------
+   ALBUM DANG LUOI + LIGHTBOX
+   -------------------------------------------------------------------------- */
+@keyframes lb-card-in {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.lb-card-in {
+  animation: lb-card-in 0.5s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+}
+
+@keyframes lb-lightbox-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lb-lightbox-in {
+  animation: lb-lightbox-in 0.32s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lb-anim-float,
-  .lb-seal-pulse {
+  .lb-seal-pulse,
+  .lb-twinkle,
+  .lb-vinyl,
+  .lb-eq-bar,
+  .lb-bag,
+  .lb-bag-shine,
+  .lb-burst-ring,
+  .lb-pop-in,
+  .lb-card-in,
+  .lb-lightbox-in,
+  .lb-polaroid-in,
+  .lb-polaroid-in-rev {
     animation: none !important;
   }
 }

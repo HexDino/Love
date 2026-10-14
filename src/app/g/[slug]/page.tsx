@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { Gift, Heart, Home, Lock, Sparkles } from 'lucide-react';
 import Gift3DViewer from '@/components/Gift3DViewer';
 import { getGiftBySlugServer, incrementGiftView } from '@/lib/gift-server';
+import { getTemplateMeta, hasInteractiveConfig } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,10 +33,17 @@ export async function generateMetadata({ params }: GiftPageProps): Promise<Metad
     };
   }
 
+  const template = getTemplateMeta(gift.config.template);
   const title = `Một món quà bất ngờ gửi tới ${gift.receiver_name} 🎁`;
-  const description = gift.is_paid
-    ? `${gift.sender_name} đã chuẩn bị một món quà đặc biệt dành riêng cho ${gift.receiver_name}. Chạm để mở phong thư và xem điều bất ngờ bên trong.`
-    : `${gift.sender_name} đang chuẩn bị một món quà cho ${gift.receiver_name}. Món quà sẽ sẵn sàng ngay khi được mở khoá.`;
+
+  let description: string;
+  if (!gift.is_paid) {
+    description = `${gift.sender_name} đang chuẩn bị một món quà cho ${gift.receiver_name}. Món quà sẽ sẵn sàng ngay khi được mở khoá.`;
+  } else if (hasInteractiveConfig(gift.config)) {
+    description = `${gift.sender_name} gửi ${gift.receiver_name} một ${template.name} có game tương tác, thẻ cào bí mật và vé đặc quyền. Chạm để mở ngay!`;
+  } else {
+    description = `${gift.sender_name} đã chuẩn bị một ${template.name} dành riêng cho ${gift.receiver_name}. Chạm để mở phong thư và xem điều bất ngờ bên trong.`;
+  }
 
   return {
     title,
@@ -140,6 +148,9 @@ export default async function GiftPage({ params }: GiftPageProps) {
   // Dem luot xem (chi khi qua da duoc mo khoa). await de serverless khong cat ngang.
   await incrementGiftView(gift.slug);
 
+  const config = gift.config;
+  const captions = gift.photos.map((_, index) => config.captions[index] ?? '');
+
   return (
     <main className="relative h-[100dvh] w-full overflow-hidden bg-black">
       <Gift3DViewer
@@ -150,6 +161,12 @@ export default async function GiftPage({ params }: GiftPageProps) {
         themeId={gift.theme}
         musicId={gift.music}
         isPreview={false}
+        templateStyle={config.template}
+        passcode={config.passcode || undefined}
+        passcodeHint={config.passcodeHint || undefined}
+        scratchMessage={config.scratchMessage || undefined}
+        coupons={config.coupons}
+        photoCaptions={captions}
       />
 
       {/* Badge thuong hieu - vong lap viral: nguoi nhan tro thanh nguoi tao tiep theo */}

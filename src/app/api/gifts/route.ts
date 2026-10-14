@@ -7,11 +7,18 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient } from '@/lib/supabase-admin';
 import {
+  MAX_COUPON_LENGTH,
+  MAX_COUPONS,
+  MAX_PASSCODE_HINT_LENGTH,
   MAX_PHOTOS,
+  MAX_SCRATCH_LENGTH,
   MIN_PHOTOS,
   THEMES,
   DEFAULT_MUSIC_ID,
   MUSIC_TRACKS,
+  isTemplateStyle,
+  normalizeGiftConfig,
+  type GiftConfig,
   type ThemeId
 } from '@/lib/constants';
 import {
@@ -26,6 +33,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const UNIQUE_VIOLATION = '23505';
+const UNDEFINED_COLUMN = '42703';
 const MAX_MESSAGE_LENGTH = 1500;
 const MAX_NAME_LENGTH = 60;
 
@@ -69,10 +77,64 @@ interface GiftPayload {
   theme: ThemeId;
   music: string;
   photos: string[];
+  config: GiftConfig;
 }
 
 function fail(message: string, status = 400, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ success: false, message, ...extra }, { status });
+}
+
+/**
+ * Kiem tra `config` gui len co vuot gioi han khong.
+ *
+ * `normalizeGiftConfig` da cat gon moi truong, nhung neu nguoi dung gui len
+ * 500 ve dac quyen thi do la dau hieu spam chu khong phai nham lan — bao loi
+ * ro rang thay vi im lang cat bot.
+ */
+function validateConfigSize(raw: unknown): string | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    return 'Trường "config" phải là một object.';
+  }
+
+  const config = raw as Record<string, unknown>;
+
+  if (config.template !== undefined && !isTemplateStyle(config.template)) {
+    return 'Kiểu trình diễn không hợp lệ.';
+  }
+
+  if (config.passcode !== undefined && config.passcode !== '') {
+    if (typeof config.passcode !== 'string' || !/^\d{4}$/.test(config.passcode.trim())) {
+      return 'Mật khẩu mở quà phải gồm đúng 4 chữ số.';
+    }
+  }
+
+  if (Array.isArray(config.coupons) && config.coupons.length > MAX_COUPONS) {
+    return `Tối đa ${MAX_COUPONS} vé đặc quyền.`;
+  }
+  if (Array.isArray(config.coupons)) {
+    const tooLong = config.coupons.some(
+      (item) => typeof item === 'string' && item.trim().length > MAX_COUPON_LENGTH
+    );
+    if (tooLong) return `Mỗi vé đặc quyền tối đa ${MAX_COUPON_LENGTH} ký tự.`;
+  }
+
+  if (Array.isArray(config.captions) && config.captions.length > MAX_PHOTOS) {
+    return `Tối đa ${MAX_PHOTOS} chú thích ảnh.`;
+  }
+
+  if (typeof config.scratchMessage === 'string' && config.scratchMessage.length > MAX_SCRATCH_LENGTH * 2) {
+    return `Lời nhắn bí mật tối đa ${MAX_SCRATCH_LENGTH} ký tự.`;
+  }
+
+  if (
+    typeof config.passcodeHint === 'string' &&
+    config.passcodeHint.length > MAX_PASSCODE_HINT_LENGTH * 2
+  ) {
+    return `Câu gợi ý mật khẩu tối đa ${MAX_PASSCODE_HINT_LENGTH} ký tự.`;
+  }
+
+  return null;
 }
 
 function parseGiftPayload(raw: unknown): { data: GiftPayload } | { error: string } {
@@ -106,6 +168,9 @@ function parseGiftPayload(raw: unknown): { data: GiftPayload } | { error: string
     return { error: `Chủ đề "${themeRaw}" không tồn tại.` };
   }
 
+  const configError = validateConfigSize(body.config);
+  if (configError) return { error: configError };
+
   const theme = themeRaw as ThemeId;
   const music = MUSIC_TRACKS.some((track) => track.id === musicRaw) ? musicRaw : DEFAULT_MUSIC_ID;
 
@@ -121,7 +186,13 @@ function parseGiftPayload(raw: unknown): { data: GiftPayload } | { error: string
     };
   }
 
-  return { data: { receiverName, senderName, message, theme, music, photos } };
+  // Chuan hoa lan cuoi o server: du client co gui gi thi du lieu vao DB
+  // van dung dinh dang va dung do dai.
+  const config = normalizeGiftConfig(body.config);
+  // Cat bot chu thich neu so anh thuc te it hon
+  config.captions = config.captions.slice(0, photos.length);
+
+  return { data: { receiverName, senderName, message, theme, music, photos, config } };
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +233,7 @@ export async function POST(request: NextRequest) {
     theme: payload.theme,
     music: payload.music,
     photos: payload.photos,
+    config: payload.config,
     amount: PRICE_VND,
     is_paid: false
   };
@@ -184,11 +256,20 @@ export async function POST(request: NextRequest) {
           message: 'Đã tạo món quà. Quét mã VietQR để mở khoá.',
           data: {
             ...data,
+            config: payload.config,
             gift_url: buildGiftUrl(data.slug),
             vietqr_url: buildVietQrUrl(data.transfer_code, data.amount)
           }
         },
         { status: 201 }
+      );
+    }
+
+    if (error && (error.code === UNDEFINED_COLUMN || error.message.includes('config'))) {
+      console.error('[api/gifts] Thieu cot config:', error.message);
+      return fail(
+        'Cơ sở dữ liệu chưa được nâng cấp. Hãy chạy file supabase/migrations/003_v2_config.sql trong Supabase SQL Editor rồi thử lại.',
+        500
       );
     }
 
@@ -260,9 +341,30 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('gifts')
-    .select('slug, receiver_name, sender_name, theme, music, photos, is_paid, view_count, created_at')
+    .select('slug, receiver_name, sender_name, theme, music, photos, config, is_paid, view_count, created_at')
     .eq('slug', slug)
     .maybeSingle();
+
+  if (error && (error.code === UNDEFINED_COLUMN || error.message.includes('config'))) {
+    // Database chua chay migration 003 - van tra du lieu co ban
+    const fallback = await supabase
+      .from('gifts')
+      .select('slug, receiver_name, sender_name, theme, music, photos, is_paid, view_count, created_at')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (fallback.error) {
+      console.error('[api/gifts] GET theo slug loi (fallback):', fallback.error.message);
+      return fail('Không đọc được dữ liệu món quà.', 500);
+    }
+    if (!fallback.data) {
+      return fail('Không tìm thấy món quà.', 404);
+    }
+    return NextResponse.json(
+      { success: true, data: { ...fallback.data, config: normalizeGiftConfig(null) } },
+      noStore
+    );
+  }
 
   if (error) {
     console.error('[api/gifts] GET theo slug loi:', error.message);
@@ -272,5 +374,8 @@ export async function GET(request: NextRequest) {
     return fail('Không tìm thấy món quà.', 404);
   }
 
-  return NextResponse.json({ success: true, data }, noStore);
+  return NextResponse.json(
+    { success: true, data: { ...data, config: normalizeGiftConfig(data.config) } },
+    noStore
+  );
 }

@@ -181,10 +181,303 @@ export const WISH_SUGGESTIONS: Record<string, string[]> = {
 };
 
 // ----------------------------------------------------------------------------
+// KIEU TRINH DIEN MON QUA (V2 - Interactive Gift Engine)
+// Dat o day (module thuan, khong 'use client') de ca Server Component
+// nhu /g/[slug]/page.tsx dung duoc ma khong vuong ranh gioi client.
+// ----------------------------------------------------------------------------
+export type TemplateStyle = 'galaxy-3d' | 'polaroid-vinyl' | 'sweet-trap' | 'blindbox-2010';
+
+export interface TemplateMeta {
+  id: TemplateStyle;
+  name: string;
+  emoji: string;
+  tagline: string;
+}
+
+export const TEMPLATE_META: Record<TemplateStyle, TemplateMeta> = {
+  'galaxy-3d': {
+    id: 'galaxy-3d',
+    name: 'Tinh Cầu Kỷ Niệm 3D',
+    emoji: '🌌',
+    tagline: 'Vòng xoay ảnh 3D giữa bầu trời sao'
+  },
+  'polaroid-vinyl': {
+    id: 'polaroid-vinyl',
+    name: 'Đĩa Than & Polaroid',
+    emoji: '🎞️',
+    tagline: 'Nhạc xoay, ảnh phim hoài cổ'
+  },
+  'sweet-trap': {
+    id: 'sweet-trap',
+    name: 'Bẫy Tình Yêu',
+    emoji: '💘',
+    tagline: 'Mini-game nút từ chối chạy trốn'
+  },
+  'blindbox-2010': {
+    id: 'blindbox-2010',
+    name: 'Túi Mù Bí Ẩn',
+    emoji: '🎁',
+    tagline: 'Tự tay xé túi mù để mở ảnh'
+  }
+};
+
+export const TEMPLATE_LIST: TemplateMeta[] = [
+  TEMPLATE_META['galaxy-3d'],
+  TEMPLATE_META['polaroid-vinyl'],
+  TEMPLATE_META['sweet-trap'],
+  TEMPLATE_META['blindbox-2010']
+];
+
+export const DEFAULT_TEMPLATE_STYLE: TemplateStyle = 'galaxy-3d';
+
+export function isTemplateStyle(value: unknown): value is TemplateStyle {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(TEMPLATE_META, value);
+}
+
+export function getTemplateMeta(value: string | undefined | null): TemplateMeta {
+  return isTemplateStyle(value) ? TEMPLATE_META[value] : TEMPLATE_META[DEFAULT_TEMPLATE_STYLE];
+}
+
+/** Nhan marketing ngan hien tren nut xem thu o Hero */
+export const TEMPLATE_BADGES: Record<TemplateStyle, string> = {
+  'galaxy-3d': 'Lãng mạn',
+  'polaroid-vinyl': 'Hoài cổ',
+  'sweet-trap': 'Cưa Crush',
+  'blindbox-2010': 'HOT 20/10'
+};
+
+// ----------------------------------------------------------------------------
+// DU LIEU MAU CHO CAC MODULE V2 (dien san vao form de xem thu ngay)
+// ----------------------------------------------------------------------------
+export const SAMPLE_PASSCODE = '2010';
+export const SAMPLE_PASSCODE_HINT = 'Gợi ý: năm chúng mình gặp nhau 🥰';
+
+export const SAMPLE_SCRATCH_MESSAGE =
+  'Bí mật nè: anh đã đặt sẵn bàn ở quán cũ, 7 giờ tối nay nhé. Mặc chiếc váy hôm đó em nhé! 💕';
+
+export const SAMPLE_COUPONS: string[] = [
+  '1 Chầu Trà Sữa Full Topping 🧋',
+  '1 Buổi Đi Xem Phim Tự Chọn 🍿',
+  'Đặc Quyền Sai Không Bị Giận 1 Lần 🎟️',
+  '1 Ngày Được Chiều Chuộng Không Cần Lý Do 🛋️'
+];
+
+export const SAMPLE_CAPTIONS: string[] = [
+  'Ngày đầu tiên mình đi chơi chung 🌸',
+  'Chuyến đi Đà Lạt nhớ mãi ☁️',
+  'Sinh nhật em năm ngoái 🎂',
+  'Buổi tối dạo biển thật yên bình 🌊',
+  'Cà phê chiều mưa ☕',
+  'Lần đầu em nấu cho anh ăn 🍜'
+];
+
+// ----------------------------------------------------------------------------
 // GIOI HAN ANH
 // ----------------------------------------------------------------------------
 export const MIN_PHOTOS = 4;
 export const MAX_PHOTOS = 8;
+
+// ----------------------------------------------------------------------------
+// CAU HINH MO RONG CUA MON QUA (V2)
+// Toan bo cau hinh nay luu trong MOT cot `config` kieu JSONB tren Supabase.
+// Ly do chon JSONB thay vi them nhieu cot: sau nay them tuy chon moi (am thanh,
+// hieu ung, font chu...) chi can sua code, KHONG phai chay ALTER TABLE nua.
+// ----------------------------------------------------------------------------
+export interface GiftConfig {
+  /** Kieu trinh dien */
+  template: TemplateStyle;
+  /** Mat khau 4 chu so. Chuoi rong = khong khoa */
+  passcode: string;
+  /** Cau goi y hien duoi ban phim so */
+  passcodeHint: string;
+  /** Loi nhan bi mat an duoi the cao */
+  scratchMessage: string;
+  /** Danh sach ve dac quyen */
+  coupons: string[];
+  /** Chu thich cho tung anh, khop theo thu tu mang photos */
+  captions: string[];
+}
+
+export const MAX_COUPONS = 8;
+export const MAX_COUPON_LENGTH = 80;
+export const MAX_CAPTION_LENGTH = 60;
+export const MAX_SCRATCH_LENGTH = 240;
+export const MAX_PASSCODE_HINT_LENGTH = 80;
+
+export const DEFAULT_GIFT_CONFIG: GiftConfig = {
+  template: DEFAULT_TEMPLATE_STYLE,
+  passcode: '',
+  passcodeHint: '',
+  scratchMessage: '',
+  coupons: [],
+  captions: []
+};
+
+/** Bo ky tu dieu khien + gop khoang trang, giu nguyen xuong dong */
+function cleanMultiline(value: unknown, maxLength: number): string {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, maxLength);
+}
+
+/** Bo ky tu dieu khien + gop moi khoang trang thanh 1 dau cach */
+function cleanSingleLine(value: unknown, maxLength: number): string {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function cleanStringArray(value: unknown, maxItems: number, maxLength: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, maxItems)
+    .map((item) => cleanSingleLine(item, maxLength))
+    .filter((item) => item.length > 0);
+}
+
+/**
+ * Giong `cleanStringArray` nhung GIU NGUYEN VI TRI (khong bo phan tu rong).
+ *
+ * Dung cho `captions`: chu thich duoc gan theo CHI SO anh (captions[0] la chu
+ * thich cua photos[0]). Neu bo di phan tu rong thi moi chu thich phia sau se
+ * bi lech sang anh khac. Vi vay phan tu rong phai duoc giu lai nhu mot cho
+ * trong de bao toan dung thu tu.
+ */
+function cleanAlignedArray(value: unknown, maxItems: number, maxLength: number): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  const limit = Math.min(value.length, maxItems);
+  for (let index = 0; index < limit; index += 1) {
+    out.push(cleanSingleLine(value[index], maxLength));
+  }
+  return out;
+}
+
+/**
+ * Chuan hoa du lieu `config` tho (tu JSONB, tu body API, hay tu form) thanh
+ * GiftConfig an toan. Dung o CA HAI phia: client truoc khi gui, va server
+ * truoc khi ghi/duyet. Nho vay du lieu rac khong bao gio vao database.
+ */
+export function normalizeGiftConfig(raw: unknown): GiftConfig {
+  const source =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+
+  const passcodeRaw = typeof source.passcode === 'string' ? source.passcode.trim() : '';
+
+  return {
+    template: isTemplateStyle(source.template) ? source.template : DEFAULT_TEMPLATE_STYLE,
+    passcode: /^\d{4}$/.test(passcodeRaw) ? passcodeRaw : '',
+    passcodeHint: cleanSingleLine(source.passcodeHint, MAX_PASSCODE_HINT_LENGTH),
+    scratchMessage: cleanMultiline(source.scratchMessage, MAX_SCRATCH_LENGTH),
+    coupons: cleanStringArray(source.coupons, MAX_COUPONS, MAX_COUPON_LENGTH),
+    captions: cleanAlignedArray(source.captions, MAX_PHOTOS, MAX_CAPTION_LENGTH)
+  };
+}
+
+/** Config nay co bat ky tuy chon tuong tac nao khong? */
+export function hasInteractiveConfig(config: GiftConfig): boolean {
+  return Boolean(config.passcode || config.scratchMessage || config.coupons.length > 0);
+}
+
+// ----------------------------------------------------------------------------
+// KHO GOI Y 1-CLICK THEO DOI TUONG NGUOI NHAN
+// ----------------------------------------------------------------------------
+export interface WishAudience {
+  id: 'lover' | 'crush' | 'family';
+  label: string;
+  emoji: string;
+  badge: string;
+  hint: string;
+  wishes: string[];
+}
+
+export const WISH_AUDIENCES: WishAudience[] = [
+  {
+    id: 'lover',
+    label: 'Người yêu',
+    emoji: '💕',
+    badge: 'HOT 20/10',
+    hint: 'Ngọt ngào, sâu lắng, dành cho người đang yêu',
+    wishes: [
+      'Nhân ngày 20/10, anh chúc em luôn xinh đẹp, rạng rỡ và bình yên. Cảm ơn em đã đến và biến những ngày bình thường nhất của anh thành những ngày đáng nhớ. Yêu em rất nhiều!',
+      '20/10 này anh không có gì to tát, chỉ có một trái tim luôn hướng về em và một lời hứa sẽ cố gắng mỗi ngày để em được vui. Chúc em thật nhiều sức khỏe và luôn cười thật tươi nhé!',
+      'Gửi em yêu, chúc em một ngày 20/10 ngập tràn hoa và nắng. Cảm ơn em vì đã kiên nhẫn với anh, vì đã thương anh và vì đã ở đây. Anh thương em nhất trên đời.',
+      'Có những ngày thật bình thường, nhưng vì có em mà trở thành ngày đáng nhớ. Chúc mừng ngày của em — người anh chọn cho cả tương lai.',
+      'Em à, anh không giỏi nói mấy lời ngọt ngào, nhưng anh biết ơn mỗi ngày được ở cạnh em. Chúc em 20/10 thật nhiều niềm vui, và mong mọi chặng đường phía trước đều có em.'
+    ]
+  },
+  {
+    id: 'crush',
+    label: 'Crush',
+    emoji: '💌',
+    badge: 'Cưa Crush',
+    hint: 'Dễ thương, hơi ngập ngừng, đủ để gây thương nhớ',
+    wishes: [
+      'Chào cậu, hôm nay 20/10 nên tớ mạnh dạn nhắn một câu: cậu có biết cậu dễ thương nhất cái lớp này không? Chúc cậu ngày lễ thật vui và luôn rạng rỡ nhé!',
+      'Tớ không giỏi nói mấy lời hoa mỹ, nên tớ chỉ nói thật: từ lúc gặp cậu, ngày nào của tớ cũng vui hơn một chút. Chúc cậu 20/10 thật hạnh phúc!',
+      'Cậu ơi, 20/10 này tớ gửi cậu một món quà nhỏ. Không dám nói to, nhưng tớ để ý cậu từ lâu rồi. Chúc cậu luôn xinh và luôn vui nhé!',
+      'Chúc cậu một ngày 20/10 thật đẹp. Mong cậu luôn là cô gái được yêu thương, được chiều chuộng — và nếu được, tớ muốn là người làm điều đó.',
+      'Tớ đã nghĩ rất lâu mới dám gửi cái này. Chúc cậu 20/10 vui vẻ, và nếu cậu rảnh thì cho tớ một cơ hội mời cậu đi uống nước nhé!'
+    ]
+  },
+  {
+    id: 'family',
+    label: 'Mẹ / Chị',
+    emoji: '🌷',
+    badge: 'Ấm áp',
+    hint: 'Lễ phép, biết ơn, dành cho người thân trong nhà',
+    wishes: [
+      'Con chúc mẹ ngày 20/10 thật nhiều sức khỏe và luôn vui vẻ. Cảm ơn mẹ đã vất vả vì con suốt bao nhiêu năm qua. Con yêu mẹ nhiều lắm!',
+      'Gửi chị yêu quý, chúc chị một ngày 20/10 thật hạnh phúc. Mong chị luôn xinh đẹp, mạnh mẽ và đạt được mọi điều mình mong muốn.',
+      'Mẹ ơi, con không nói được nhiều lời ngọt ngào, nhưng con mong mẹ luôn khỏe và luôn cười. Chúc mừng ngày Phụ nữ Việt Nam của mẹ!',
+      'Chúc mừng ngày 20/10! Cảm ơn mẹ đã là chỗ dựa lớn nhất của cả nhà. Mong mẹ luôn mạnh khỏe, bình an và được yêu thương thật nhiều.',
+      'Nhân ngày của phụ nữ Việt Nam, con chúc mẹ và chị luôn rạng rỡ và bình an. Cả nhà mình mãi là nơi ấm áp nhất.'
+    ]
+  }
+];
+
+// ----------------------------------------------------------------------------
+// KHO VE DAC QUYEN GOI Y
+// ----------------------------------------------------------------------------
+export const COUPON_SUGGESTIONS: string[] = [
+  '1 Chầu Trà Sữa Full Topping 🧋',
+  '1 Buổi Đi Xem Phim Tự Chọn 🍿',
+  'Đặc Quyền Sai Không Bị Giận 1 Lần 🎟️',
+  '1 Ngày Được Chiều Chuộng Không Cần Lý Do 🛋️',
+  '1 Bữa Ăn Ở Quán Em Thích 🍜',
+  '1 Chuyến Đi Chơi Cuối Tuần 🏖️',
+  'Đặc Quyền Được Ôm 10 Phút Không Cần Xin Phép 🤗',
+  '1 Lần Được Chọn Phim Cho Cả Tối 🎬',
+  '1 Buổi Sáng Được Pha Cà Phê Tận Giường ☕',
+  'Đặc Quyền Được Giận Vô Cớ 1 Ngày 😤'
+];
+
+// ----------------------------------------------------------------------------
+// GOI Y LOI NHAN BI MAT (the cao bac)
+// ----------------------------------------------------------------------------
+export const SCRATCH_SUGGESTIONS: string[] = [
+  'Tối 20/10 7h30 anh qua đón đi ăn món em thích nhé!',
+  'Bí mật nè: anh đã đặt sẵn bàn ở quán cũ, 7 giờ tối nay nhé. Mặc chiếc váy hôm đó em nhé! 💕',
+  'Quà thật đã giấu sẵn ở ngăn bàn của em rồi đó. Về nhà mở ra xem nhé!',
+  'Cuối tuần này mình đi Đà Lạt nhé, anh đã đặt phòng rồi. Cào xong thì nhắn cho anh một câu nha!'
+];
+
+// ----------------------------------------------------------------------------
+// QUYEN LOI KHI MO KHOA (dung chung cho banner xem thu & modal thanh toan)
+// ----------------------------------------------------------------------------
+export const UNLOCK_BENEFITS: string[] = [
+  'Lưu giữ vĩnh viễn, không giới hạn lượt mở',
+  'Xoá nhãn "Bản dùng thử" trên mọi khung hình',
+  'Nhận Thiệp QR thiết kế riêng để gửi cho người ấy',
+  'Mở khoá trọn bộ Game tương tác & Thẻ cào bí mật'
+];
 
 // ----------------------------------------------------------------------------
 // DU LIEU MAU (dien san vao form de nguoi dung bam "Xem thu" ngay lap tuc)

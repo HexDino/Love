@@ -18,6 +18,9 @@ create table if not exists public.gifts (
   theme          text not null default 'pastel-pink',
   music          text not null default 'romantic-piano',
   photos         jsonb not null default '[]'::jsonb,
+  -- Cau hinh mo rong V2 (kieu trinh dien, mat khau, the cao, ve dac quyen...)
+  -- Xem supabase/migrations/003_v2_config.sql de biet cau truc day du.
+  config         jsonb not null default '{}'::jsonb,
   amount         integer not null default 39000,
   is_paid        boolean not null default false,
   paid_at        timestamptz,
@@ -30,13 +33,16 @@ create table if not exists public.gifts (
   constraint gifts_sender_name_check   check (char_length(trim(sender_name)) between 1 and 60),
   constraint gifts_message_check       check (char_length(trim(message)) between 1 and 1500),
   constraint gifts_theme_check         check (theme in ('pastel-pink', 'starry-night', 'warm-sunset')),
-  constraint gifts_photos_check        check (jsonb_typeof(photos) = 'array')
+  constraint gifts_photos_check        check (jsonb_typeof(photos) = 'array'),
+  constraint gifts_config_check        check (jsonb_typeof(config) = 'object')
 );
 
 create index if not exists gifts_slug_idx          on public.gifts (slug);
 create index if not exists gifts_transfer_code_idx on public.gifts (transfer_code);
 create index if not exists gifts_is_paid_idx       on public.gifts (is_paid);
 create index if not exists gifts_created_at_idx    on public.gifts (created_at desc);
+-- Chi huu ich neu sau nay can truy van theo truong ben trong config
+create index if not exists gifts_config_gin_idx    on public.gifts using gin (config jsonb_path_ops);
 
 -- ----------------------------------------------------------------------------
 -- 2. TRIGGER TU DONG CAP NHAT updated_at
