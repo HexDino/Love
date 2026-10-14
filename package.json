@@ -7,6 +7,7 @@
     "dev": "next dev",
     "demo": "node tools/dev-demo.cjs",
     "mock": "node tools/mock-supabase.cjs",
+    "smoke": "node tools/smoke-test.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

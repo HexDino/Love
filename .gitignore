@@ -1,5 +1,8 @@
 node_modules/
 .next/
+# Thu muc build rieng cua `npm run smoke` (xem tools/smoke-test.cjs).
+# Tach khoi .next de co the chay smoke test trong khi dev server dang chay.
+.next-smoke/
 out/
 build/
 dist/

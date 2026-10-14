@@ -68,8 +68,9 @@ Rồi mở `.env.local` và điền giá trị thật (xem các bước dưới)
 2. Mở **SQL Editor → New query**, dán toàn bộ nội dung `supabase/schema.sql` rồi **Run**.
    File này tạo bảng `gifts`, index, trigger `updated_at`, RLS policies, bucket Storage
    `gift-photos` (public read) và function `increment_gift_view`.
-   > Nếu bạn đã chạy `schema.sql` ở Phần 1 rồi thì chỉ cần chạy thêm
-   > `supabase/migrations/002_part2.sql`.
+   > Nếu bạn đã chạy `schema.sql` ở Phần 1 rồi thì chạy thêm **cả hai** file
+   > `supabase/migrations/002_part2.sql` và `supabase/migrations/003_v2_config.sql`
+   > (theo đúng thứ tự). File `003` mới là file tạo cột `config` cho các tính năng V2.
 3. Vào **Project Settings → API**, copy 3 giá trị:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -131,6 +132,7 @@ curl -X POST http://localhost:3000/api/webhook/payment \
 | `npm run demo`    | Chạy mock Supabase + dev server (khuyên dùng để xem thử)        |
 | `npm run mock`    | Chỉ chạy mock Supabase ở cổng 3199                              |
 | `npm run dev`     | Dev server thường, dùng `.env.local` thật của bạn               |
+| `npm run smoke`   | Chạy bộ kiểm thử tự động toàn bộ luồng (xem mục bên dưới)       |
 
 > Dữ liệu demo nằm trong RAM. Tắt server là mất sạch — đúng như mong đợi.
 
@@ -167,6 +169,7 @@ supabase/
     └── 003_v2_config.sql                 # Thêm cột config JSONB cho bản V2
 tools/
 ├── dev-demo.cjs                          # npm run demo - mock + dev server
+├── smoke-test.cjs                        # npm run smoke - kiểm thử tự động toàn luồng
 └── mock-supabase.cjs                     # Mock PostgREST/Storage cho dev
 public/
 ├── music/                                # Nhạc nền MP3
@@ -414,10 +417,71 @@ curl -X POST http://localhost:3000/api/webhook/payment \
 
 ```bash
 npm run dev        # dev server
+npm run demo       # mock Supabase + dev server (không cần tài khoản thật)
+npm run smoke      # kiểm thử tự động toàn bộ luồng (tự build + tự chạy)
 npm run build      # build production
 npm run start      # chạy bản build
+npm run lint       # ESLint
 npm run typecheck  # kiểm tra TypeScript
 ```
+
+---
+
+## Kiểm thử tự động — `npm run smoke`
+
+Một script duy nhất, **không cần Supabase thật và không cần cài thêm thư viện nào**
+(chỉ dùng `fetch` có sẵn của Node ≥ 18). Nó tự làm hết:
+
+1. Khởi động **mock Supabase** ở cổng `3399`
+2. Chạy `next build` + `next start` ở cổng `3400`, build vào `.next-smoke`
+3. Bắn **36 phép kiểm tra** qua HTTP và in bảng PASS/FAIL
+4. Tắt hết tiến trình con, trả về exit code `0` (pass) hoặc `1` (fail)
+
+```bash
+npm run smoke
+```
+
+**Vì sao chạy bản production (`build` + `start`) mà không phải `next dev`?** Vì lỗi
+nguy hiểm nhất của dự án (xem ghi chú kỹ thuật số 2) **chỉ xuất hiện ở production**:
+Next tự cache mọi `fetch` GET vào Data Cache. Nếu ai đó xoá `cache: 'no-store'` trong
+`supabase.ts`, ở chế độ dev mọi thứ vẫn đúng, nhưng ở production khách đã trả tiền vẫn
+thấy trang "chưa mở khoá". Phép kiểm tra *"Metadata ĐỔI sau khi mở khoá"* chính là lưới
+an toàn cho lỗi đó — và nó chỉ có tác dụng khi chạy bản production.
+
+**Vì sao không dùng chung thư mục `.next`?** `next build` xoá sạch thư mục build; nếu
+dev server đang chạy trên cùng `.next` thì mọi thứ sẽ "chết" (ghi chú số 9). Script này
+build vào `.next-smoke` riêng, nên bạn **có thể chạy smoke test trong khi dev server vẫn
+đang chạy**.
+
+Nội dung được kiểm tra:
+
+| Nhóm | Nội dung |
+| --- | --- |
+| **A. Giao diện** | Trang chủ render đủ 4 kiểu trình diễn ở Hero; 5 route `/demo-templates/*` trả 200 |
+| **B. Validate** | Thiếu tên, mật khẩu sai định dạng, quá 8 vé, dưới 4 ảnh, chủ đề lạ → đều 400 |
+| **C. Dữ liệu** | Tạo đơn 201, mã `LOVE#####` đúng định dạng; `config` JSONB lưu xuống và đọc lại nguyên vẹn |
+| **C. Chống lệch ảnh** | `captions` giữ **đúng vị trí kể cả ô rỗng** (bẫy ở ghi chú số 8) |
+| **D. Trang nhận** | `/g/[slug]` trả 200; metadata đúng trạng thái; ảnh OG render ra PNG thật |
+| **E. Webhook** | Sai khoá → 401; thiếu tiền / sai tài khoản / tiền ra / thiếu mã → bỏ qua; hợp lệ → mở khoá; gọi lại → idempotent; nhận cả payload Casso |
+| **F. Sau mở khoá** | `is_paid = true`, `paid_at` được ghi, metadata đổi sang bản có tương tác |
+| **G. Lỗi khác** | Slug không tồn tại → 404; mã sai định dạng → 400; body không phải JSON → 400 |
+
+Nếu bạn đổi cổng (vì `3399`/`3400` đang bận), đặt biến môi trường:
+
+```bash
+SMOKE_MOCK_PORT=3499 SMOKE_APP_PORT=3500 npm run smoke
+```
+
+Một vài tuỳ chọn thêm:
+
+| Lệnh | Việc làm |
+| --- | --- |
+| `node tools/smoke-test.cjs --dev` | Bỏ qua build, chạy thẳng `next dev`. **Nhanh hơn nhiều** nhưng **yếu hơn** — ở chế độ dev Next không cache `fetch` GET nên phép kiểm tra chống cache sẽ luôn PASS kể cả khi code đã hỏng. Chỉ dùng để kiểm tra nhanh phần API/dữ liệu. |
+| `node tools/smoke-test.cjs --no-build` | Dùng lại bản build đã có sẵn trong `.next-smoke/` (tiện khi bạn vừa build xong và chỉ muốn kiểm tra lại). |
+| `SMOKE_DIST_DIR=.next npm run smoke` | Đổi thư mục build (mặc định `.next-smoke`). |
+
+> Thư mục `.next-smoke/` được tạo riêng cho việc kiểm thử và đã nằm trong `.gitignore`.
+> Cứ để nguyên giữa các lần chạy — script tự dọn trước mỗi lần build.
 
 ---
 
